@@ -67,7 +67,7 @@ public class Inspector {
                 logger.severe("Failed to create output directory");
             }
         } catch (SecurityException e) {
-            logger.severe("Failed to create output directory due to a security exception");
+            logger.severe("Failed to create output directory due to a security exception", e);
         }
     }
 
@@ -87,7 +87,7 @@ public class Inspector {
                 try {
                     toProcess = ImageIO.read(new File("src/main/resources/" + filename));
                 } catch (IOException e) {
-                    logger.severe("Failed to read image for " + filename);
+                    logger.severe("Failed to read image for " + filename, e);
                     return;
                 }
 
@@ -121,7 +121,7 @@ public class Inspector {
         try {
             ImageIO.write(image, "PNG", new File(pathPrefix + filename));
         } catch (IOException e) {
-            logger.severe("Failed to write imperfections file for " + filename);
+            logger.severe("Failed to write imperfections file for " + filename, e);
         }
     }
 

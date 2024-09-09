@@ -26,6 +26,11 @@ public class Logger {
         System.out.println("[" + name + "]" + "[SEVERE]" + " " + message);
     }
 
+    public void severe(String message, Throwable throwable) {
+        System.out.println("[" + name + "]" + "[SEVERE]" + " " + message);
+        System.out.println("Exception: " + throwable.getMessage());
+    }
+
     public void debug(String message) {
         if (!debugEnabled) {
             return;
