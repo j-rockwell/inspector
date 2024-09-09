@@ -44,53 +44,7 @@ public class Inspector {
         }
 
         setupOutputDirectory();
-
-        for (String filename : filenames) {
-            final long start = System.currentTimeMillis();
-
-            logger.debug("Spawning new process for " + filename);
-
-            executorService.submit(() -> {
-                logger.debug("Now processing " + filename);
-
-                BufferedImage input;
-                try {
-                    input = ImageIO.read(new File("src/main/resources/" + filename));
-                } catch (IOException e) {
-                    logger.severe("Failed to read file: " + filename);
-                    return;
-                }
-
-                BufferedImage mask = ImageProcessor.applyMask(input, config.getMaskThreshold());
-                try {
-                    ImageIO.write(mask, "PNG", new File("out/" + filename + "_mask.png"));
-                    logger.info("Wrote " + filename + " mask file successfully");
-                } catch (IOException e) {
-                    logger.severe("Failed to write mask file: " + filename);
-                }
-
-                BufferedImage dilated = ImageProcessor.applyDilation(mask);
-                try {
-                    ImageIO.write(dilated, "PNG", new File("out/" + filename + "_dilated.png"));
-                    logger.info("Wrote " + filename + " dilation file successfully");
-                } catch (IOException e) {
-                    logger.severe("Failed to write dilation file: " + filename);
-                }
-
-                BufferedImage imperfections = ImageProcessor.applyImperfectionsMap(dilated, config.getMinImperfectionThreshold(), config.getMaxImperfectionThreshold());
-                try {
-                    ImageIO.write(imperfections, "PNG", new File("out/" + filename + "_imperfections.png"));
-                    logger.info("Wrote " + filename + " imperfections file successfully");
-                } catch (IOException e) {
-                    logger.severe("Failed to write imperfections file: " + filename);
-                }
-            });
-
-            final long end = System.currentTimeMillis();
-            final long diff = (end - start);
-            logger.debug("Processed " + filename + " (took " + diff + "ms)");
-        }
-
+        setupProcessorTasks();
         shutdown(); // Awaits tasks to be finished
     }
 
@@ -114,6 +68,60 @@ public class Inspector {
             }
         } catch (SecurityException e) {
             logger.severe("Failed to create output directory due to a security exception");
+        }
+    }
+
+    private void setupProcessorTasks() {
+        if (filenames == null || filenames.isEmpty()) {
+            logger.severe("No files were provided while setting up processor");
+            return;
+        }
+
+        filenames.forEach(filename -> {
+            final String cleanFileName = filename.replaceAll(".png", "").replaceAll(".jpg", "");
+
+            executorService.submit(() -> {
+                final long startTimestamp = System.currentTimeMillis();
+
+                BufferedImage toProcess = null;
+                try {
+                    toProcess = ImageIO.read(new File("src/main/resources/" + filename));
+                } catch (IOException e) {
+                    logger.severe("Failed to read image for " + filename);
+                    return;
+                }
+
+                toProcess = ImageProcessor.applyMask(toProcess, config.getMaskThreshold());
+                if (config.isDebugMode()) {
+                    writeImageToOutput(toProcess, cleanFileName + "_mask.png", true);
+                }
+
+                toProcess = ImageProcessor.applyDilation(toProcess);
+                if (config.isDebugMode()) {
+                    writeImageToOutput(toProcess, cleanFileName + "_dilated.png", true);
+                }
+
+                toProcess = ImageProcessor.applyImperfectionsMap(toProcess, config.getMinImperfectionThreshold(), config.getMaxImperfectionThreshold());
+                if (config.isDebugMode()) {
+                    writeImageToOutput(toProcess, cleanFileName + "_imperfection.png", true);
+                }
+
+                writeImageToOutput(toProcess, cleanFileName + "_imperfection.png", false);
+
+                final long endTimestamp = System.currentTimeMillis();
+                final long processTime = endTimestamp - startTimestamp;
+                logger.info("Processed " + filename + " (took " + processTime + "ms)");
+            });
+        });
+    }
+
+    private void writeImageToOutput(BufferedImage image, String filename, boolean asExample) {
+        final String pathPrefix = (asExample) ? "examples/" : "out/";
+
+        try {
+            ImageIO.write(image, "PNG", new File(pathPrefix + filename));
+        } catch (IOException e) {
+            logger.severe("Failed to write imperfections file for " + filename);
         }
     }
 
